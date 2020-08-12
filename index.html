@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>轮播图demo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+        }
+        
+        .swiper {
+            /* 定义视口 */
+            height: 200px;
+            width: 300px;
+            margin: 100px auto;
+            border: 1px solid red;
+            /* 超出部分隐藏 */
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .slides {
+            display: flex;
+            height: 100%;
+            /* 加入过渡 */
+        }
+        
+        .slides li {
+            width: 100%;
+            /* 去掉前面的黑点 */
+            list-style: none;
+        }
+        
+        li img {
+            width: 100%;
+            height: 100%;
+        }
+        
+        .sliderListDot {
+            position: absolute;
+            left: 50%;
+            bottom: 20px;
+            display: flex;
+            transform: translateX(-50%);
+        }
+        
+        .sliderDot {
+            width: 14px;
+            height: 14px;
+            background-color: #fff;
+            margin: 0 10px;
+            border-radius: 50%;
+            opacity: 0.6;
+            transition: all 0.5s;
+        }
+        
+        .active {
+            width: 36px;
+            background-color: #fff;
+            border-radius: 7px;
+            opacity: 1;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="app">
+        <div class="swiper" ref="viewPortRef">
+            <ul class="slides" ref="box" :style="translateStyle" @touchstart="onTouchStart" @touchmove="onTouchMove" @touchend="onTouchEnd">
+                <li :key="index" v-for="(item,index) in newList">
+                    <img :src="item.url">
+                </li>
+            </ul>
+            <div class="sliderListDot">
+                <span class="sliderDot" :key="index" v-for="(item,index) in items" :class="{active : activeIndex==index}" @mouseenter="enter(index)" @mouselevae="leave"></span>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/vue.js"></script>
+    <script>
+        new Vue({
+            el: '#app',
+            data() {
+                return {
+                    // 获取按住时的X值
+                    toucheStartX: 0,
+                    newList: [],
+                    // 定时器
+                    timer: null,
+                    // 当前index
+                    currentIndex: 1,
+                    // 偏移量
+                    offsetX: 0,
+                    // 视口
+                    viewport: 0,
+                    isTransition: false,
+                    items: [{
+                        id: 1,
+                        url: '/imgs/1.jpg'
+                    }, {
+                        id: 2,
+                        url: '/imgs/2.jpg'
+                    }, {
+                        id: 3,
+                        url: '/imgs/3.jpg'
+                    }, {
+                        id: 4,
+                        url: '/imgs/4.jpg'
+                    }, ]
+                }
+            },
+            mounted() {
+                // 初始化宽度
+                this.init()
+                    // 自动轮播
+                this.autoplay()
+            },
+            methods: {
+                // 初始化
+                init() {
+                    const first = this.items.slice(0, 1)
+                    const last = this.items.slice(-1)
+                    this.newList = [...last, ...this.items, ...first]
+                        // 获取视口的宽度
+                    this.viewport = this.$refs.viewPortRef.clientWidth
+                        // 计算图片外层盒子的大小
+                    this.$refs.box.style.width = this.newList.length * this.viewport + 'px'
+                },
+                // 自动轮播 ,其实就是通过transition 偏移X
+                autoplay() {
+                    this.timer = setInterval(() => {
+                        // 加上延时,造成视觉误差
+                        setTimeout(() => {
+                            this.isTransition = true
+                            this.currentIndex++
+                        }, 40)
+
+                        if (this.currentIndex === this.newList.length - 1) {
+                            this.isTransition = false
+                            this.currentIndex = 1
+                        }
+
+
+                    }, 2000)
+                },
+                stopplay() {
+                    this.timer && clearInterval(this.timer)
+                },
+                onTouchStart(e) {
+                    // 关闭自动播放
+                    this.stopplay()
+                        // 关闭过渡
+                    this.isTransition = false
+                        // 当前是0的时候,是最后第二个
+                    if (this.currentIndex === 0) {
+                        this.currentIndex = this.newList.length - 2
+                    }
+                    if (this.currentIndex === this.newList.length - 1) {
+                        this.currentIndex = 1
+                    }
+                    // 获取按住的X坐标位置
+                    this.toucheStartX = e.targetTouches[0].clientX;
+                    console.log(this.toucheStartX);
+                },
+                onTouchMove(e) {
+
+                    // 获取移动的偏移量
+                    this.offsetX = this.toucheStartX - e.targetTouches[0].clientX;
+
+                },
+                onTouchEnd() {
+                    // 开启效果
+                    this.isTransition = true;
+                    // 四舍五入
+                    let currentIndex = Math.round(this.offsetX / this.viewport)
+                    this.currentIndex = currentIndex + this.currentIndex
+                        // 重置offsetX
+                    this.offsetX = 0
+                        // 自动播放
+                    this.autoplay()
+                },
+                // 鼠标进入的时候
+                enter(index) {
+
+                    // 停止自动播放
+                    this.stopplay()
+                    this.currentIndex = index + 1
+                },
+                // 鼠标离开的时候
+                leave() {
+
+                    this.autoplay()
+                }
+            },
+            // 通过计算属性来获取偏移的X
+            computed: {
+                translateStyle() {
+                    const translate = `translateX(-${this.currentIndex*this.viewport+this.offsetX }px)`
+                    const transition = this.isTransition ? 'all 1s' : 'none'
+                    return {
+                        transform: translate,
+                        transition: transition
+                    }
+                },
+                activeIndex() {
+                    let index = 0
+                        // 当currentIndex=0的时候就是列表的最后一个
+                    if (this.currentIndex === 0) {
+                        index = this.items.length - 1
+                    }
+                    // 当是倒数第二个的时候就是第0个 
+                    else if (this.currentIndex === this.newList.length - 1) {
+                        index = 0
+                    }
+                    // 其余都是-1 
+                    else {
+                        index = this.currentIndex - 1
+                    }
+                    return index
+                }
+            },
+        })
+    </script>
+</body>
+
+</html>
